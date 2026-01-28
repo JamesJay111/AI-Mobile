@@ -2,13 +2,43 @@ import { auth } from '../config/firebase';
 
 /**
  * Get current user ID
- * TODO: Replace with real Firebase Auth when authentication is implemented
+ * Returns the authenticated user's UID, or throws if not authenticated
  */
 export function getCurrentUserId(): string {
-  // For now, return placeholder
-  // When Firebase Auth is implemented, use:
-  // return auth.currentUser?.uid || 'anonymous';
-  return auth.currentUser?.uid || 'current-user';
+  const uid = auth.currentUser?.uid;
+  if (!uid) {
+    console.error('[TRACE] getCurrentUserId: No authenticated user found');
+    throw new Error('User not authenticated. Please wait for authentication to complete.');
+  }
+  return uid;
+}
+
+/**
+ * Wait for authentication to complete
+ * Returns the user UID once authenticated
+ */
+export async function waitForAuth(): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (auth.currentUser) {
+      resolve(auth.currentUser.uid);
+      return;
+    }
+
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      unsubscribe();
+      if (user) {
+        resolve(user.uid);
+      } else {
+        reject(new Error('Authentication failed'));
+      }
+    });
+
+    // Timeout after 10 seconds
+    setTimeout(() => {
+      unsubscribe();
+      reject(new Error('Authentication timeout'));
+    }, 10000);
+  });
 }
 
 /**

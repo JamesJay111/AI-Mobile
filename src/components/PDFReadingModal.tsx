@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { X, Upload, Loader2, AlertCircle } from 'lucide-react';
 import { uploadFileToStorage } from '../services/storageUpload';
-import { readPDF } from '../services/openRouter';
+import { analyzePDF } from '../services/openRouter';
 import { getCurrentUserId } from '../utils/user';
 
 interface PDFReadingModalProps {
@@ -53,27 +53,60 @@ export function PDFReadingModal({ isOpen, onClose, isPro, onProClick }: PDFReadi
   const handleAnalyze = async () => {
     if (!canAnalyze) return;
 
+    const requestId = `pdf_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`[TRACE] feature=pdf step=validate requestId=${requestId}`, {
+      fileName: file?.name,
+      fileSize: file?.size,
+      questionLength: question.trim().length,
+      hasUploadedUrl: !!uploadedPdfUrl,
+      isPro,
+    });
+
     // Check Pro status
-    // TODO: 恢复Pro检查 - 临时注释掉以便测试
-    // if (!isPro) {
-    //   onClose();
-    //   if (onProClick) {
-    //     setTimeout(() => onProClick(), 300);
-    //   }
-    //   return;
-    // }
+    if (!isPro) {
+      console.log(`[TRACE] feature=pdf step=paywall_block requestId=${requestId}`);
+      onClose();
+      if (onProClick) {
+        setTimeout(() => onProClick(), 300);
+      }
+      return;
+    }
 
     setIsLoading(true);
     setError(null);
     setAnswer(null);
 
     try {
-      const pdfUrl = uploadedPdfUrl ?? (await handleUpload());
-      const res = await readPDF({
+      let pdfUrl: string;
+      if (uploadedPdfUrl) {
+        console.log(`[TRACE] feature=pdf step=reuse_upload requestId=${requestId}`, {
+          urlLength: uploadedPdfUrl.length,
+        });
+        pdfUrl = uploadedPdfUrl;
+      } else {
+        console.log(`[TRACE] feature=pdf step=upload requestId=${requestId}`, {
+          fileName: file?.name,
+          fileSize: file?.size,
+        });
+        pdfUrl = await handleUpload();
+      }
+
+      console.log(`[TRACE] feature=pdf step=callable requestId=${requestId}`, {
+        pdfUrlLength: pdfUrl.length,
+        questionLength: question.trim().length,
+      });
+
+      const res = await analyzePDF({
         pdfUrl,
         question: question.trim(),
         userId: getCurrentUserId(),
-        isPro: true,
+        isPro: isPro,
+      });
+
+      console.log(`[TRACE] feature=pdf step=render requestId=${requestId}`, {
+        success: res.success,
+        hasAnswer: !!res.answer,
+        answerLength: res.answer?.length || 0,
       });
 
       if (!res.success || !res.answer) {

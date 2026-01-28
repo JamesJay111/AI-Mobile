@@ -29,9 +29,7 @@
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
-    "plugins": [
-      "expo-router"
-    ],
+    "plugins": [],
     "scheme": "gemgpt",
     "sdkVersion": "54.0.0",
     "extra": {

@@ -47,15 +47,22 @@ export function ImageGenerationModal({ isOpen, onClose, isPro, onProClick }: Ima
   const handleGenerate = async () => {
     if (!canSubmit) return;
 
+    const requestId = `image_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`[TRACE] feature=image step=validate requestId=${requestId}`, {
+      promptLength: description.trim().length,
+      hasReferenceImage: !!referenceImage,
+      isPro,
+    });
+
     // Check Pro status
-    // TODO: 恢复Pro检查 - 临时注释掉以便测试
-    // if (!isPro) {
-    //   onClose();
-    //   if (onProClick) {
-    //     setTimeout(() => onProClick(), 300);
-    //   }
-    //   return;
-    // }
+    if (!isPro) {
+      console.log(`[TRACE] feature=image step=paywall_block requestId=${requestId}`);
+      onClose();
+      if (onProClick) {
+        setTimeout(() => onProClick(), 300);
+      }
+      return;
+    }
 
     setIsLoading(true);
     setError(null);
@@ -64,17 +71,34 @@ export function ImageGenerationModal({ isOpen, onClose, isPro, onProClick }: Ima
     try {
       let referenceImageUrl: string | undefined;
       if (referenceImage) {
+        console.log(`[TRACE] feature=image step=upload requestId=${requestId}`, {
+          fileName: referenceImage.name,
+          fileSize: referenceImage.size,
+        });
         referenceImageUrl = await uploadFileToStorage({
           file: referenceImage,
-          path: `image-refs/current-user/${Date.now()}_${referenceImage.name}`,
+          path: `image-refs/${getCurrentUserId()}/${Date.now()}_${referenceImage.name}`,
+        });
+        console.log(`[TRACE] feature=image step=upload_complete requestId=${requestId}`, {
+          referenceImageUrlLength: referenceImageUrl.length,
         });
       }
+
+      console.log(`[TRACE] feature=image step=callable requestId=${requestId}`, {
+        promptLength: description.trim().length,
+        hasReferenceImage: !!referenceImageUrl,
+      });
 
       const res = await generateImage({
         prompt: description.trim(),
         referenceImageUrl,
         userId: getCurrentUserId(),
-        isPro: true,
+        isPro: isPro,
+      });
+
+      console.log(`[TRACE] feature=image step=render requestId=${requestId}`, {
+        success: res.success,
+        hasImageUrl: !!res.imageUrl,
       });
 
       if (!res.success || !res.imageUrl) {

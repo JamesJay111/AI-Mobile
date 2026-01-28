@@ -69,6 +69,24 @@ export function ChatScreen({
   const handleSend = async () => {
     if (!inputValue.trim() || isLoading) return;
 
+    const requestId = `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`[TRACE] feature=chat step=validate requestId=${requestId}`, {
+      inputLength: inputValue.length,
+      selectedModel,
+      isPro,
+    });
+
+    // Check Pro status for Pro-only models
+    const model = MODELS.find(m => m.id === selectedModel);
+    if (model?.isPro && !isPro) {
+      console.log(`[TRACE] feature=chat step=paywall_block requestId=${requestId}`, {
+        modelId: selectedModel,
+        modelName: model.name,
+      });
+      onProClick();
+      return;
+    }
+
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -99,6 +117,11 @@ export function ChatScreen({
         { role: 'user' as const, content: inputValue }
       ];
 
+      console.log(`[TRACE] feature=chat step=callable requestId=${requestId}`, {
+        modelId: openRouterModelId,
+        messagesCount: apiMessages.length,
+      });
+
       // Call OpenRouter API via Firebase Function
       const response = await chatCompletion({
         messages: apiMessages,
@@ -106,6 +129,11 @@ export function ChatScreen({
         userId: getCurrentUserId(),
         isPro: isPro,
         stream: false
+      });
+
+      console.log(`[TRACE] feature=chat step=render requestId=${requestId}`, {
+        success: response.success,
+        hasContent: !!response.data?.choices?.[0]?.message?.content,
       });
 
       if (response.success && response.data?.choices?.[0]?.message?.content) {
@@ -130,6 +158,24 @@ export function ChatScreen({
 
   const handleCardClick = async (title: string) => {
     if (isLoading) return;
+
+    const requestId = `chat_card_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`[TRACE] feature=chat step=validate requestId=${requestId}`, {
+      cardTitle: title,
+      selectedModel,
+      isPro,
+    });
+
+    // Check Pro status for Pro-only models
+    const model = MODELS.find(m => m.id === selectedModel);
+    if (model?.isPro && !isPro) {
+      console.log(`[TRACE] feature=chat step=paywall_block requestId=${requestId}`, {
+        modelId: selectedModel,
+        modelName: model.name,
+      });
+      onProClick();
+      return;
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -156,12 +202,22 @@ export function ChatScreen({
         { role: 'user' as const, content: title }
       ];
 
+      console.log(`[TRACE] feature=chat step=callable requestId=${requestId}`, {
+        modelId: openRouterModelId,
+        messagesCount: apiMessages.length,
+      });
+
       const response = await chatCompletion({
         messages: apiMessages,
         modelId: openRouterModelId,
         userId: getCurrentUserId(),
         isPro: isPro,
         stream: false
+      });
+
+      console.log(`[TRACE] feature=chat step=render requestId=${requestId}`, {
+        success: response.success,
+        hasContent: !!response.data?.choices?.[0]?.message?.content,
       });
 
       if (response.success && response.data?.choices?.[0]?.message?.content) {

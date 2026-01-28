@@ -21,6 +21,7 @@ import { YouTubeInputSheet } from './components/YouTubeInputSheet';
 import { SignatureMakerSheet } from './components/SignatureMakerSheet';
 import { LogoGeneratorSheet } from './components/LogoGeneratorSheet';
 import { TattooGeneratorSheet } from './components/TattooGeneratorSheet';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Export helper function for model ID conversion
 export function getOpenRouterModelId(internalModelId: string): string {
@@ -257,7 +258,9 @@ export default function App() {
   const showBottomTabs = currentScreen !== 'settings' && currentScreen !== 'personalization';
 
   return (
-      <div className="h-screen bg-white overflow-hidden">
+      <div className="h-screen bg-white overflow-hidden flex flex-col">
+        <ErrorBoundary>
+        <div className={`flex-1 min-h-0 overflow-hidden ${showBottomTabs ? 'pb-16' : ''}`}>
         {/* Main Tab Content */}
         {currentTab === 'chat' && currentScreen === 'chat' && (
           <ChatScreen
@@ -395,6 +398,8 @@ export default function App() {
             onUpgradeToPro={handleProFeatureClick}
           />
         )}
+        </div>
+        </ErrorBoundary>
 
         {/* Side Menu */}
         <SideMenu
