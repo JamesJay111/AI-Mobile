@@ -1,7 +1,7 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import axios from 'axios';
-import cors from 'cors';
+import * as corsModule from 'cors';
 import { OPENROUTER_API_KEY } from './config';
 
 const RUNTIME_OPTS = {
@@ -10,7 +10,7 @@ const RUNTIME_OPTS = {
   serviceAccount: 'gemgpt-ai-assistance@appspot.gserviceaccount.com'
 };
 
-const corsHandler = cors({ origin: true });
+const corsHandler = corsModule.default({ origin: true });
 export const chatCompletion = functions.runWith(RUNTIME_OPTS).https.onCall(async (data, context) => {
   const traceHeader = context.rawRequest?.headers['x-cloud-trace-context'];
   const traceValue = Array.isArray(traceHeader) ? traceHeader[0] : traceHeader;
