@@ -1,0 +1,59 @@
+---
+description: Live preview development workflow for GemGPT
+alwaysApply: true
+---
+
+# Live Preview Development Workflow
+
+## Quick Start
+
+1. **Start Development Server**:
+   ```bash
+   npm run dev
+   ```
+   This starts Vite dev server on `http://localhost:3000` with Hot Module Replacement (HMR).
+
+2. **Open Preview in Browser**:
+   - The server automatically opens `http://localhost:3000` in your default browser
+   - Or manually open: `http://localhost:3000`
+
+3. **Real-time Updates**:
+   - Edit any file in `src/`
+   - Changes are automatically reflected in the browser (HMR)
+   - No page refresh needed for most changes
+
+## Development Workflow
+
+### Left Side: Code Editor (Cursor)
+- Edit React components in `src/components/`
+- Modify styles in `src/index.css` or `src/styles/globals.css`
+- Update services in `src/services/`
+
+### Right Side: Browser Preview
+- Keep browser open at `http://localhost:3000`
+- Watch changes appear instantly
+- Test interactions and UI states
+
+## Vite HMR Features
+
+- **Fast Refresh**: React components update without losing state
+- **CSS Updates**: Style changes apply instantly
+- **Error Overlay**: Errors shown directly in browser
+- **Console Logs**: Check browser DevTools for logs
+
+## Testing Checklist
+
+When making changes, verify:
+- [ ] UI renders correctly
+- [ ] Loading states work
+- [ ] Error states display properly
+- [ ] Success states show feedback
+- [ ] All buttons have proper hover/active states
+- [ ] Modals open/close correctly
+- [ ] Mobile responsiveness (use browser DevTools device mode)
+
+## Troubleshooting
+
+- **Port 3000 in use?**: Change port in `vite.config.ts` server.port
+- **Changes not showing?**: Hard refresh browser (Cmd+Shift+R / Ctrl+Shift+R)
+- **Build errors?**: Check terminal for TypeScript/ESLint errors

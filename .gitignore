@@ -1,0 +1,62 @@
+# Dependencies
+node_modules/
+functions/node_modules/
+
+# Build outputs
+build/
+dist/
+functions/lib/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# API Keys (IMPORTANT: Keep config.ts out of git)
+functions/src/config.ts
+
+# Firebase Service Account key (for deploy without firebase login)
+firebase-deploy-key.json
+*-deploy-key.json
+
+# Proxy config (contains credentials; do not commit)
+proxy.env
+
+# Cloud Shell deploy bundle
+deploy-cloudshell.zip
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Expo
+.expo/
+.expo-shared/
+dist/
+web-build/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*

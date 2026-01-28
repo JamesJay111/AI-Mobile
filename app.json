@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "GemGPT",
+    "slug": "gemgpt",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.gemgpt.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.gemgpt.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "scheme": "gemgpt",
+    "sdkVersion": "54.0.0",
+    "extra": {
+      "VITE_FIREBASE_API_KEY": "AIzaSyAvJs6c69vChvQ6WwQNHPZe_IetKazdcoM",
+      "VITE_FIREBASE_AUTH_DOMAIN": "gemgpt-ai-assistance.firebaseapp.com",
+      "VITE_FIREBASE_PROJECT_ID": "gemgpt-ai-assistance",
+      "VITE_FIREBASE_STORAGE_BUCKET": "gemgpt-ai-assistance.firebasestorage.app",
+      "VITE_FIREBASE_MESSAGING_SENDER_ID": "397459517247",
+      "VITE_FIREBASE_APP_ID": "1:397459517247:web:905af5eed14a80640cad8a"
+    }
+  }
+}
