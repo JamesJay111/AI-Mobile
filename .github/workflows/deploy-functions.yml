@@ -1,0 +1,95 @@
+# 云端部署 Firebase Functions（绕过本机网络 / 代理）
+# 触发：推送到 main，或 Actions 页手动 Run workflow
+# 需配置 Secrets：FIREBASE_SA_B64、OPENROUTER_API_KEY
+
+name: Deploy Firebase Functions
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Verify FIREBASE_SA_B64 secret
+        env:
+          FROM_SECRET: ${{ secrets.FIREBASE_SA_B64 }}
+          FROM_VAR: ${{ vars.FIREBASE_SA_B64 }}
+        run: |
+          if [ -n "$FROM_SECRET" ]; then
+            echo "FIREBASE_SA_B64 found (from Secret)."
+            echo "SA_SOURCE=secret" >> "$GITHUB_ENV"
+          elif [ -n "$FROM_VAR" ]; then
+            echo "FIREBASE_SA_B64 found (from Variable). Prefer Secret for security."
+            echo "SA_SOURCE=var" >> "$GITHUB_ENV"
+          else
+            echo "::error::FIREBASE_SA_B64 is missing."
+            echo "If you added it, check:"
+            echo "  • Use a *Secret* (Settings → Secrets and variables → Actions → *Secrets*), not a Variable."
+            echo "  • *Repository* secrets (not under Environments)."
+            echo "  • Name exactly: FIREBASE_SA_B64 (no space, same case)."
+            echo "  • Correct repo: JamesJay111/AI-Mobile."
+            echo "  • Push the latest workflow to main if you only edited locally."
+            exit 1
+          fi
+
+      - name: Create service account key
+        env:
+          FIREBASE_SA_B64: ${{ secrets.FIREBASE_SA_B64 }}
+          FIREBASE_SA_B64_VAR: ${{ vars.FIREBASE_SA_B64 }}
+        run: |
+          VAL="${FIREBASE_SA_B64:-$FIREBASE_SA_B64_VAR}"
+          TRIMMED=$(printf '%s' "$VAL" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          if [[ "$TRIMMED" == \{* ]]; then
+            printf '%s' "$TRIMMED" > "$GITHUB_WORKSPACE/sa.json"
+          else
+            B64=$(printf '%s' "$VAL" | tr -d '\n\r \t')
+            if ! printf '%s' "$B64" | base64 -d > "$GITHUB_WORKSPACE/sa.json" 2>/dev/null; then
+              echo "::error::FIREBASE_SA_B64 invalid. Use (1) raw JSON key paste, or (2) base64: base64 -i key.json | tr -d '\\n' | pbcopy. No extra spaces/newlines."
+              exit 1
+            fi
+          fi
+          if ! grep -q '"type": "service_account"' "$GITHUB_WORKSPACE/sa.json" 2>/dev/null; then
+            echo "::error::FIREBASE_SA_B64 is not valid service account JSON."
+            exit 1
+          fi
+
+      - name: Create OpenRouter config
+        run: |
+          node -e "
+            const k = process.env.OPENROUTER_API_KEY || '';
+            const s = 'export const OPENROUTER_API_KEY = ' + JSON.stringify(k) + ';\n';
+            require('fs').writeFileSync('functions/src/config.ts', s);
+          "
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
+      - name: Install and build functions
+        run: |
+          cd functions && npm ci && npm run build && cd ..
+
+      - name: Deploy to Firebase
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/sa.json
+          CI: 1
+        run: |
+          set +e
+          npx firebase-tools deploy --only functions --project gemgpt-ai-assistance --non-interactive --force
+          EXIT=$?
+          if [ $EXIT -ne 0 ]; then
+            echo "::warning::First deploy attempt failed (exit $EXIT). Retrying in 60s..."
+            sleep 60
+            npx firebase-tools deploy --only functions --project gemgpt-ai-assistance --non-interactive --force
+            exit $?
+          fi
+          exit 0
