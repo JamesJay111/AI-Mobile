@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
+import AppNative from './src/native/AppNative';
 
 const styles = StyleSheet.create({
   fallback: {
@@ -44,7 +45,7 @@ export default function App() {
     })();
   }, []);
 
-  if (Platform.OS !== 'web') return fallback;
+  if (Platform.OS !== 'web') return <AppNative />;
   if (!WebApp) {
     return (
       <View style={[styles.fallback, { justifyContent: 'center' }]}>

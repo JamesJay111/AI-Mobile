@@ -2,6 +2,7 @@ import { httpsCallable } from 'firebase/functions';
 import { functions } from '../config/firebase';
 import { auth } from '../config/firebase';
 import { CHAT_MODELS } from '../App';
+import { firebaseConfig } from '../config/firebaseConfig';
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -63,6 +64,33 @@ export interface AnalyzePDFResponse extends PDFReadingResponse {}
 const chatCompletionFn = httpsCallable(functions, 'chatCompletion');
 const generateImageFn = httpsCallable(functions, 'generateImage');
 const analyzePDFFn = httpsCallable(functions, 'analyzePDF');
+const REGION = 'us-central1';
+
+async function chatCompletionHttp(request: ChatCompletionRequest): Promise<ChatCompletionResponse> {
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) {
+    return { success: false, error: 'User not authenticated. Please wait for authentication to complete.' };
+  }
+  const url = `https://${REGION}-${firebaseConfig.projectId}.cloudfunctions.net/chatCompletionHttp`;
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(request),
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      return { success: false, error: json?.error || `HTTP ${res.status}` };
+    }
+    return json as ChatCompletionResponse;
+  } catch (e: any) {
+    return { success: false, error: e?.message || 'Network error' };
+  }
+}
 
 /**
  * Send chat completion request to OpenRouter via Firebase Cloud Function
@@ -70,6 +98,9 @@ const analyzePDFFn = httpsCallable(functions, 'analyzePDF');
 export async function chatCompletion(
   request: ChatCompletionRequest
 ): Promise<ChatCompletionResponse> {
+  // #region agent log
+  fetch('http://127.0.0.1:7244/ingest/32289130-f534-4630-9c42-4b2caa924b0b',{method:'POST',mode:'no-cors',body:JSON.stringify({location:'openRouter.ts:chatCompletion:start',message:'chatCompletion start',data:{hasAuth:!!auth.currentUser,modelId:String(request.modelId||''),messagesCount:request.messages?.length||0,isPro:!!request.isPro},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H5'})}).catch(()=>{});
+  // #endregion
   // Ensure user is authenticated before making the call
   if (!auth.currentUser) {
     console.error('[TRACE] feature=chat step=auth_check failed: No authenticated user');
@@ -95,18 +126,24 @@ export async function chatCompletion(
       payload: payloadSummary,
     });
 
-    const result = await chatCompletionFn(request);
+    // Workaround: some web dev origins hit CORS issues with callable.
+    // Use HTTP endpoint on web, callable on native.
+    const isWeb = typeof window !== 'undefined';
+    const result = isWeb ? await chatCompletionHttp(request) : ((await chatCompletionFn(request)).data as ChatCompletionResponse);
 
     const responseSummary = {
-      success: result.data?.success,
-      hasChoices: !!result.data?.data?.choices?.length,
-      contentLength: result.data?.data?.choices?.[0]?.message?.content?.length || 0,
+      success: (result as any)?.success,
+      hasChoices: !!(result as any)?.data?.choices?.length,
+      contentLength: (result as any)?.data?.choices?.[0]?.message?.content?.length || 0,
     };
 
     console.log(`[TRACE] feature=chat step=callable_after requestId=${requestId}`, responseSummary);
 
-    return result.data as ChatCompletionResponse;
+    return result as ChatCompletionResponse;
   } catch (error: any) {
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/32289130-f534-4630-9c42-4b2caa924b0b',{method:'POST',mode:'no-cors',body:JSON.stringify({location:'openRouter.ts:chatCompletion:error',message:'chatCompletion callable threw',data:{code:String(error?.code||''),message:String(error?.message||''),detailsType:typeof error?.details,detailsKeys:error?.details&&typeof error.details==='object'?Object.keys(error.details).slice(0,10):null},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H5'})}).catch(()=>{});
+    // #endregion
     console.error(`[TRACE] feature=chat step=callable_error requestId=${requestId}`, {
       code: error.code,
       message: error.message,

@@ -12,11 +12,13 @@ if [[ -z "$SKIP_PROXY" ]] && [[ -f "proxy.env" ]]; then
   source ./proxy.env
   set +a
   echo "🌐 为 Git 设置 GitHub 代理..."
-  git config --global http.https://github.com.proxy "$HTTP_PROXY"
-  git config --global https.https://github.com.proxy "$HTTPS_PROXY"
-  git config --global http.postBuffer 524288000
+  # 注意：在部分环境中无法写入 ~/.gitconfig（会报 could not lock config）。
+  # 因此这里使用 repo-local 配置，避免写全局配置。
+  git config http.https://github.com.proxy "$HTTP_PROXY"
+  git config https.https://github.com.proxy "$HTTPS_PROXY"
+  git config http.postBuffer 524288000
 elif [[ -z "$SKIP_PROXY" ]]; then
-  git config --global http.postBuffer 524288000
+  git config http.postBuffer 524288000
   echo "⚠️  未找到 proxy.env，跳过代理（若遇 timeout 可配置 proxy.env 或开 VPN）"
 fi
 

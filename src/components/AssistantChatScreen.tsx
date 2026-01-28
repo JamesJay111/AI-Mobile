@@ -1,7 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-import { Menu, Send, Plus, Mic } from 'lucide-react';
+import { Menu, Send, Plus, Mic, Loader2, AlertCircle } from 'lucide-react';
 import { MODELS } from '../App';
 import logoImg from '../assets/e3ade1b558b3b6915bbd0aa4817e63d55d1b0cbb.png';
+import { chatCompletion, getOpenRouterModelId as getModelId } from '../services/openRouter';
+import { getCurrentUserId } from '../utils/user';
+
+const DEBUG_MARKER = 'assistantchat_wired_20260128_v1';
 
 const ASSISTANT_INFO: Record<
   string,
@@ -73,17 +77,27 @@ export function AssistantChatScreen({
   ]);
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/32289130-f534-4630-9c42-4b2caa924b0b',{method:'POST',mode:'no-cors',body:JSON.stringify({location:'AssistantChatScreen.tsx:mount',message:'AssistantChatScreen mounted',data:{assistantId,selectedModel,isPro,marker:DEBUG_MARKER,href:typeof window!=='undefined'?window.location.href:'(no-window)',ua:typeof navigator!=='undefined'?navigator.userAgent:'(no-navigator)'},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H1'})}).catch(()=>{});
+    // #endregion
     scrollToBottom();
   }, [messages]);
 
-  const handleSend = () => {
-    if (!input.trim()) return;
+  const handleSend = async () => {
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/32289130-f534-4630-9c42-4b2caa924b0b',{method:'POST',mode:'no-cors',body:JSON.stringify({location:'AssistantChatScreen.tsx:handleSend:enter',message:'handleSend enter',data:{hasInput:!!input.trim(),isLoading,marker:DEBUG_MARKER},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H2'})}).catch(()=>{});
+    // #endregion
+    if (!input.trim() || isLoading) return;
+    setError(null);
+    setIsLoading(true);
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -92,7 +106,11 @@ export function AssistantChatScreen({
       timestamp: Date.now(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    const nextMessages = [...messages, userMessage];
+    setMessages(nextMessages);
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/32289130-f534-4630-9c42-4b2caa924b0b',{method:'POST',mode:'no-cors',body:JSON.stringify({location:'AssistantChatScreen.tsx:handleSend:state',message:'queued user message',data:{nextLen:nextMessages.length,marker:DEBUG_MARKER},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H2'})}).catch(()=>{});
+    // #endregion
 
     // Add to history on first user message
     if (messages.length === 1) {
@@ -100,18 +118,61 @@ export function AssistantChatScreen({
       onAddToHistory(historyTitle, 'assistant');
     }
 
+    const userText = input;
     setInput('');
 
-    // Simulate AI response
-    setTimeout(() => {
+    try {
+      const uid = getCurrentUserId();
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/32289130-f534-4630-9c42-4b2caa924b0b',{method:'POST',mode:'no-cors',body:JSON.stringify({location:'AssistantChatScreen.tsx:handleSend:uid',message:'got uid',data:{uid8:String(uid).slice(0,8),marker:DEBUG_MARKER},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H3'})}).catch(()=>{});
+      // #endregion
+      const systemPrompt =
+        `You are "${assistant.name}". Your role: ${assistant.welcomeText} ` +
+        `Be helpful, concise, and follow the user's instructions.`;
+
+      const apiMessages = [
+        { role: 'system' as const, content: systemPrompt },
+        // Send prior conversation (excluding the initial local welcome bubble)
+        ...nextMessages
+          .slice(1)
+          .map((m) => ({ role: (m.isUser ? 'user' : 'assistant') as const, content: m.text })),
+      ];
+
+      const response = await chatCompletion({
+        messages: apiMessages,
+        modelId: getModelId(selectedModel),
+        userId: uid,
+        isPro,
+      });
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/32289130-f534-4630-9c42-4b2caa924b0b',{method:'POST',mode:'no-cors',body:JSON.stringify({location:'AssistantChatScreen.tsx:handleSend:resp',message:'chatCompletion returned',data:{success:!!response?.success,hasChoices:!!response?.data?.choices?.length,marker:DEBUG_MARKER},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H4'})}).catch(()=>{});
+      // #endregion
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to generate response');
+      }
+
+      const reply = response.data?.choices?.[0]?.message?.content || 'No response generated.';
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: "I'm processing your request. This is a placeholder response until assistant chat is wired to the backend.",
+        text: reply,
         isUser: false,
         timestamp: Date.now(),
       };
-      setMessages(prev => [...prev, aiMessage]);
-    }, 1000);
+      setMessages((prev) => [...prev, aiMessage]);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to send message');
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/32289130-f534-4630-9c42-4b2caa924b0b',{method:'POST',mode:'no-cors',body:JSON.stringify({location:'AssistantChatScreen.tsx:handleSend:error',message:'handleSend error',data:{msg:String(e?.message||''),marker:DEBUG_MARKER},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H4'})}).catch(()=>{});
+      // #endregion
+      // Put the user's text back if we failed and input is empty
+      if (!input && userText) setInput(userText);
+    } finally {
+      setIsLoading(false);
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/32289130-f534-4630-9c42-4b2caa924b0b',{method:'POST',mode:'no-cors',body:JSON.stringify({location:'AssistantChatScreen.tsx:handleSend:finally',message:'handleSend finally',data:{marker:DEBUG_MARKER},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H2'})}).catch(()=>{});
+      // #endregion
+    }
   };
 
   if (!assistant) {
@@ -129,7 +190,10 @@ export function AssistantChatScreen({
           >
             <img src={logoImg} alt="GemGPT" className="w-full h-full object-contain" />
           </button>
-          <span className="font-semibold text-lg text-[#1a1d2e]">GemGPT</span>
+          <div className="flex flex-col leading-tight">
+            <span className="font-semibold text-lg text-[#1a1d2e]">GemGPT</span>
+            <span className="text-[11px] text-gray-400 select-text">{DEBUG_MARKER}</span>
+          </div>
         </div>
 
         <div className="flex items-center gap-3">
@@ -161,6 +225,15 @@ export function AssistantChatScreen({
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-3">
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2">
+            <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
+            <div className="text-sm text-red-800">
+              <div className="font-medium">Request failed</div>
+              <div className="opacity-90">{error}</div>
+            </div>
+          </div>
+        )}
         {messages.map((message) => (
           <div
             key={message.id}
@@ -187,6 +260,20 @@ export function AssistantChatScreen({
             </div>
           </div>
         ))}
+        {isLoading && (
+          <div className="flex gap-3 justify-start">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-2xl">
+              {assistant.emoji}
+            </div>
+            <div className="flex flex-col gap-2 max-w-[85%]">
+              <span className="text-sm font-medium text-gray-900">{assistant.name}</span>
+              <div className="rounded-2xl px-4 py-3 bg-white border border-gray-200 text-gray-800 flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-gray-600" />
+                <span className="text-[15px] leading-relaxed text-gray-600">Thinking…</span>
+              </div>
+            </div>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
@@ -216,8 +303,8 @@ export function AssistantChatScreen({
           {/* Send Button */}
           <button
             onClick={handleSend}
-            disabled={!input.trim()}
-            className="w-14 h-14 bg-[#00A67E] rounded-[18px] transition-all flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#00957a] flex items-center justify-center shadow-sm"
+            disabled={!input.trim() || isLoading}
+            className="w-14 h-14 bg-[#00A67E] rounded-[18px] transition-all flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#00957a] flex items-center justify-center shadow-sm active:scale-95"
           >
             <Send className="w-6 h-6 text-white" fill="white" />
           </button>

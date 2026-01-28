@@ -20,15 +20,15 @@ export function ModelSelector({
 
   return (
     <>
-      {/* Backdrop */}
+      {/* 背景遮罩层 - 必须是 bg-black/40 */}
       <div
         className="fixed inset-0 bg-black/40 z-40 transition-opacity"
         onClick={onClose}
       />
 
-      {/* Bottom Sheet */}
+      {/* 底部弹出面板 - 从底部滑入 */}
       <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-50 shadow-2xl animate-slide-up max-h-[85vh] flex flex-col">
-        {/* Header */}
+        {/* 顶部标题栏 */}
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
           <h2 className="text-lg font-semibold text-gray-900">Select Model</h2>
           <button
@@ -39,7 +39,7 @@ export function ModelSelector({
           </button>
         </div>
 
-        {/* Models Grid */}
+        {/* 模型列表 - 2列网格 */}
         <div className="overflow-y-auto p-4 flex-1">
           <div className="grid grid-cols-2 gap-3">
             {MODELS.map((model) => {
@@ -56,20 +56,14 @@ export function ModelSelector({
                       : 'border-gray-200 bg-white hover:border-gray-300'
                   } ${isLocked ? 'opacity-75' : ''}`}
                 >
+                  {/* 选中标记 - 右上角对勾 */}
                   {isSelected && (
                     <div className="absolute top-3 right-3 w-5 h-5 bg-[#1a1d2e] rounded-full flex items-center justify-center">
                       <Check className="w-3 h-3 text-white" />
                     </div>
                   )}
 
-                  {isLocked && (
-                    <div className="absolute top-3 right-3">
-                      <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  )}
-
+                  {/* 模型信息 */}
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <h3 className="font-semibold text-sm text-gray-900">
@@ -84,17 +78,6 @@ export function ModelSelector({
                     <p className="text-xs text-gray-600 leading-snug">
                       {model.description}
                     </p>
-                    <div className="flex items-center gap-2 mt-1">
-                      {model.speed === 'fast' && (
-                        <span className="text-[10px] text-gray-500">⚡ Fast</span>
-                      )}
-                      {model.speed === 'normal' && (
-                        <span className="text-[10px] text-gray-500">🟢 Normal</span>
-                      )}
-                      {model.speed === 'slow' && (
-                        <span className="text-[10px] text-gray-500">🐌 Slow</span>
-                      )}
-                    </div>
                   </div>
                 </button>
               );
@@ -102,7 +85,7 @@ export function ModelSelector({
           </div>
         </div>
 
-        {/* Bottom Safe Area */}
+        {/* 底部安全区域 */}
         <div className="h-6 flex-shrink-0" />
       </div>
     </>
