@@ -1,5 +1,7 @@
 import * as functions from 'firebase-functions';
+import * as admin from 'firebase-admin';
 import axios from 'axios';
+import * as cors from 'cors';
 import { OPENROUTER_API_KEY } from './config';
 
 const RUNTIME_OPTS = {
@@ -7,6 +9,8 @@ const RUNTIME_OPTS = {
   memory: '512MB' as const,
   serviceAccount: 'gemgpt-ai-assistance@appspot.gserviceaccount.com'
 };
+
+const corsHandler = cors({ origin: true });
 export const chatCompletion = functions.runWith(RUNTIME_OPTS).https.onCall(async (data, context) => {
   const traceHeader = context.rawRequest?.headers['x-cloud-trace-context'];
   const traceValue = Array.isArray(traceHeader) ? traceHeader[0] : traceHeader;
@@ -127,3 +131,94 @@ export const chatCompletion = functions.runWith(RUNTIME_OPTS).https.onCall(async
     );
   }
 });
+
+/**
+ * HTTP endpoint for Web dev to avoid CORS issues with callable in some setups.
+ * This verifies Firebase ID token from Authorization: Bearer <token>.
+ */
+export const chatCompletionHttp = functions
+  .runWith(RUNTIME_OPTS)
+  .https.onRequest((req, res) => {
+    corsHandler(req, res, async () => {
+      if (req.method === 'OPTIONS') {
+        res.status(204).send('');
+        return;
+      }
+
+      const requestId = `chat_http_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      try {
+        if (req.method !== 'POST') {
+          res.status(405).json({ success: false, error: 'Method not allowed' });
+          return;
+        }
+
+        const authHeader = req.headers.authorization || '';
+        const match =
+          typeof authHeader === 'string'
+            ? authHeader.match(/^Bearer\s+(.+)$/i)
+            : null;
+        if (!match?.[1]) {
+          functions.logger.error('[chatCompletionHttp] step=auth_check failed', {
+            requestId,
+            reason: 'Missing bearer token',
+          });
+          res.status(401).json({ success: false, error: 'Unauthenticated' });
+          return;
+        }
+
+        const decoded = await admin.auth().verifyIdToken(match[1]);
+        const uid = decoded.uid;
+
+        const { messages, modelId, stream = false } = req.body || {};
+        if (!messages || !Array.isArray(messages) || messages.length === 0) {
+          res
+            .status(400)
+            .json({ success: false, error: 'Messages array is required' });
+          return;
+        }
+        if (!modelId || typeof modelId !== 'string') {
+          res
+            .status(400)
+            .json({ success: false, error: 'modelId is required' });
+          return;
+        }
+
+        functions.logger.info('[chatCompletionHttp] step=openrouter_request', {
+          requestId,
+          uid,
+          feature: 'chat',
+          modelId,
+          messagesCount: messages.length,
+        });
+
+        const response = await axios.post(
+          'https://openrouter.ai/api/v1/chat/completions',
+          { model: modelId, messages, stream: !!stream },
+          {
+            headers: {
+              Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+              'HTTP-Referer': 'https://gemgpt.app',
+              'X-Title': 'GemGPT',
+              'Content-Type': 'application/json',
+            },
+            timeout: 60000,
+          }
+        );
+
+        res.status(200).json({ success: true, data: response.data });
+      } catch (error: any) {
+        const status = error?.response?.status;
+        const msg =
+          error?.response?.data?.error?.message ||
+          error?.message ||
+          'Internal error';
+        functions.logger.error('[chatCompletionHttp] step=error', {
+          requestId,
+          status,
+          msg: String(msg).substring(0, 200),
+        });
+        res.status(500).json({ success: false, error: msg });
+      }
+    });
+  });
