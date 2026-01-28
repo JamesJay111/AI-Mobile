@@ -1,7 +1,7 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import axios from 'axios';
-import * as cors from 'cors';
+import cors from 'cors';
 import { OPENROUTER_API_KEY } from './config';
 
 const RUNTIME_OPTS = {

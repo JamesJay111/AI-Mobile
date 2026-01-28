@@ -20,7 +20,8 @@
   },
   "devDependencies": {
     "typescript": "^5.0.0",
-    "@types/node": "^20.0.0"
+    "@types/node": "^20.0.0",
+    "@types/cors": "^2.8.17"
   },
   "private": true
 }
